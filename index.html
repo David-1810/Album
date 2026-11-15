@@ -199,6 +199,37 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.5);
         }
 
+        /* --- BOTÓN DE ORDENAMIENTO --- */
+        .controls-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+
+        .sort-btn {
+            background: #5c3a21;
+            color: #f4ecd8;
+            border: 1px solid #d3c4a9;
+            padding: 0.6rem 1.2rem;
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+        }
+
+        .sort-btn:hover { 
+            background: #3b2313; 
+            color: #d4af37; 
+            border-color: #d4af37;
+            transform: translateY(-2px);
+        }
+
         /* --- FOTOS ESTILO POLAROID --- */
         .page-content {
             flex: 1;
@@ -520,6 +551,17 @@
 
         /* --- RESPONSIVIDAD --- */
         @media (max-width: 768px) {
+            .controls-container {
+                bottom: 15px;
+                width: 90%;
+                display: flex;
+                justify-content: center;
+            }
+            .sort-btn {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.85rem;
+            }
+            
             .scene { 
                 width: 100vw; 
                 aspect-ratio: 1.1; /* Libro más cuadrado en móviles para maximizar el tamaño de las fotos */
@@ -605,6 +647,10 @@
 </head>
 <body>
 
+    <div class="controls-container">
+        <button class="sort-btn" onclick="toggleSortOrder()" id="sortBtn">⏱ Orden: Más recientes primero</button>
+    </div>
+
     <div class="app-container">
         <!-- ESCENARIO DEL LIBRO 3D -->
         <div class="scene">
@@ -629,6 +675,7 @@
         let albumPhotos = []; 
         let currentLeafIndex = 0;
         let totalLeaves = 0;
+        let sortOrder = 'desc'; // 'desc' = más recientes primero, 'asc' = más antiguas primero
 
         // --- ELEMENTOS DOM ---
         const bookContainer = document.getElementById('book');
@@ -641,8 +688,7 @@
                 const response = await fetch('./datos.json');
                 if (response.ok) {
                     albumPhotos = await response.json();
-                    // Ordenar: de la más reciente a la más antigua
-                    albumPhotos.sort((a, b) => b.dateTimestamp - a.dateTimestamp);
+                    applySorting();
                 } else {
                     console.log("No se encontró datos.json. El álbum inicia vacío.");
                 }
@@ -651,6 +697,31 @@
             }
             renderBook();
         }
+
+        // --- LÓGICA DE ORDENAMIENTO ---
+        function applySorting() {
+            if (sortOrder === 'desc') {
+                albumPhotos.sort((a, b) => b.dateTimestamp - a.dateTimestamp);
+            } else {
+                albumPhotos.sort((a, b) => a.dateTimestamp - b.dateTimestamp);
+            }
+        }
+
+        window.toggleSortOrder = function() {
+            // Cambiar la dirección del orden
+            sortOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+            
+            // Actualizar el texto del botón
+            document.getElementById('sortBtn').innerText = sortOrder === 'desc' 
+                ? '⏱ Orden: Más recientes primero' 
+                : '⏱ Orden: Más antiguas primero';
+            
+            // Reordenar y renderizar si hay fotos
+            if (albumPhotos.length > 0) {
+                applySorting();
+                renderBook();
+            }
+        };
 
         // Arrancar
         loadMemories();
