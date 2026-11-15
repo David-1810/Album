@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuestro Libro De Aventuras</title>
+    
+    <!-- Exif.js para leer metadatos de imágenes -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    
+    <!-- Fuente manuscrita para las fechas y título -->
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- ESTILOS GENERALES Y FONDO --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Playfair Display', serif;
+            /* Fondo que simula una mesa de madera oscura o tapete */
+            background: radial-gradient(circle at center, #4a3b32 0%, #1e1511 100%);
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden; /* Elimina scroll vertical y horizontal permanentemente */
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* --- CONTENEDOR DEL LIBRO 3D --- */
+        .scene {
+            position: relative;
+            width: 100%;
+            max-width: min(96vw, 1400px);
+            max-height: calc(100vh - 160px); /* Descontamos más espacio para el margen superior e inferior */
+            aspect-ratio: 1.6; /* Relación de aspecto dinámica para que escale perfecto */
+            perspective: 2000px;
+            margin: 4vh auto 2rem auto; /* Añadimos margen superior (4vh) para despegarlo del techo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .book {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            /* Inclinación ligera para darle aspecto 3D en la mesa */
+            transform: rotateX(5deg);
+        }
+
+        /* --- HOJAS DEL LIBRO --- */
+        .leaf {
+            position: absolute;
+            top: 0; /* Aseguramos que la hoja nunca se caiga hacia abajo */
+            width: 50%;
+            height: 100%;
+            right: 0;
+            transform-origin: left center;
+            transition: transform 1s cubic-bezier(0.645, 0.045, 0.355, 1);
+            transform-style: preserve-3d;
+            z-index: 1; /* Manejado por JS */
+        }
+
+        .page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            background-color: #f4ecd8; /* Color papel texturizado */
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.05"/%3E%3C/svg%3E');
+            border: 1px solid #d3c4a9;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Lados de la hoja */
+        .page.front { 
+            transform: rotateY(0deg); 
+            /* Sombra en el pliegue izquierdo */
+            box-shadow: inset 15px 0 20px -15px rgba(0,0,0,0.4), 2px 0 5px rgba(0,0,0,0.1);
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .page.back { 
+            transform: rotateY(180deg); 
+            /* Sombra en el pliegue derecho */
+            box-shadow: inset -15px 0 20px -15px rgba(0,0,0,0.4), -2px 0 5px rgba(0,0,0,0.1);
+            border-radius: 8px 0 0 8px;
+        }
+
+        /* Portadas - Estilo UP (Libro de Aventuras) */
+        .page.cover {
+            background-color: #3b2313;
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.1"/%3E%3C/svg%3E');
+            color: #d4af37;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+            border: none;
+            /* Hemos eliminado "position: relative" y "overflow: hidden" que rompían la estructura 3D */
+        }
+
+        /* Lomo rojo del libro */
+        .page.cover::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 15%;
+            height: 100%;
+            background-color: #8b0000;
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.2"/%3E%3C/svg%3E');
+            box-shadow: inset -5px 0 10px rgba(0,0,0,0.4), 2px 0 5px rgba(0,0,0,0.5);
+            z-index: 1;
+        }
+
+        /* Corrección: En la contraportada, el lomo va a la derecha */
+        .page.back.cover::before {
+            left: auto;
+            right: 0;
+            box-shadow: inset 5px 0 10px rgba(0,0,0,0.4), -2px 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* Marco dorado */
+        .cover-frame {
+            position: absolute;
+            top: 15px;
+            bottom: 15px;
+            right: 15px;
+            left: calc(15% + 15px);
+            border: 3px double #d4af37;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Título estilo UP */
+        .cover-title {
+            position: relative;
+            z-index: 3;
+            font-family: 'Playfair Display', serif;
+            font-weight: 700;
+            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            line-height: 1.1;
+            text-transform: uppercase;
+            margin-left: 15%; /* Respeta el lomo rojo */
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .cover-title span { display: inline-block; }
+
+        /* Paleta de colores UP */
+        .c1 { color: #f28c28; } /* Naranja */
+        .c2 { color: #e9d66b; } /* Amarillo */
+        .c3 { color: #7cb342; } /* Verde */
+        .c4 { color: #e53935; } /* Rojo */
+        
+        /* Pequeñas rotaciones aleatorias */
+        .t1 { transform: rotate(-6deg); }
+        .t2 { transform: rotate(4deg); }
+        .t3 { transform: rotate(-3deg); }
+        .t4 { transform: rotate(7deg); }
+
+        .cover-globe {
+            position: absolute;
+            bottom: 8%;
+            left: calc(50% + 7.5%); /* Centrado descontando el lomo */
+            transform: translateX(-50%);
+            font-size: 3rem;
+            z-index: 3;
+            background: #3b2313;
+            border-radius: 50%;
+            padding: 2px;
+            border: 2px solid #d4af37;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 65px;
+            height: 65px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        /* --- FOTOS ESTILO POLAROID --- */
+        .page-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr; /* Forzar cuadrícula 2x2 exacta */
+            gap: 15px;
+            padding: 1.5rem 1.5rem 4.5rem 1.5rem; /* Espacio inferior seguro para el botón */
+            align-items: center;
+            justify-items: center;
+            position: relative;
+            height: 100%;
+        }
+
+        .polaroid-wrapper {
+            height: 92%; /* En escritorio, el alto dicta el tamaño para no desbordar */
+            width: auto;
+            aspect-ratio: 1 / 1.2; /* Mantiene la proporción clásica siempre */
+            position: relative;
+            margin: auto;
+            perspective: 1000px;
+            transition: transform 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .polaroid-wrapper:hover {
+            transform: scale(1.1) rotate(0deg) !important;
+            z-index: 10;
+        }
+
+        .polaroid {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+        }
+
+        .polaroid.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .polaroid-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.3);
+            background: #fff;
+            border-radius: 2px;
+        }
+
+        .polaroid-front {
+            padding: 4%;
+            padding-bottom: 18%; /* Espacio inferior usando porcentaje para escalar de forma fluida */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .polaroid-back {
+            transform: rotateY(180deg);
+            background-color: #f4ecd8;
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.05"/%3E%3C/svg%3E');
+            
+            /* Solución estricta para el desbordamiento de texto */
+            padding: 15px;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            
+            font-family: 'Caveat', cursive;
+            font-size: clamp(1.2rem, 3vw, 1.8rem);
+            color: #3b2313;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #d3c4a9;
+        }
+
+        .polaroid-front img, .polaroid-front .media-container {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border: 1px solid #eee;
+            background: #000; /* Placeholder si carga */
+            position: relative;
+            cursor: pointer;
+        }
+
+        .polaroid-front .media-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .play-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            pointer-events: none; /* Deja pasar clicks al contenedor */
+            padding-left: 4px; /* Centra el triángulo visualmente */
+            transition: opacity 0.2s;
+            z-index: 2;
+        }
+
+        .polaroid-front .caption {
+            position: absolute;
+            bottom: 3%;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-family: 'Caveat', cursive;
+            font-size: clamp(0.7rem, 2vw, 1.2rem); /* Fuente fluida responsiva */
+            color: #111;
+        }
+
+        /* Botones integrados en el libro */
+        .book-nav {
+            position: absolute;
+            bottom: 1.5rem;
+            font-family: 'Caveat', cursive;
+            font-size: 1.8rem;
+            color: #5c3a21;
+            cursor: pointer;
+            user-select: none;
+            z-index: 5;
+            transition: color 0.2s;
+        }
+        .book-nav:hover { color: #2a1508; }
+        .page.front .book-nav { right: 1.5rem; } /* Next */
+        .page.back .book-nav { left: 1.5rem; } /* Prev */
+
+        /* --- MODAL VINTAGE --- */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background-color: #f4ecd8;
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.05"/%3E%3C/svg%3E');
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            border: 2px solid #8b5a2b;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            font-family: 'Playfair Display', serif;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 2px dashed #d3c4a9;
+            text-align: center;
+        }
+        .modal-header h2 { font-family: 'Caveat', cursive; font-size: 2.5rem; color: #5c3a21;}
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 2px dashed #d3c4a9;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .pending-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            background: rgba(255,255,255,0.5);
+            padding: 1rem;
+            border: 1px solid #d3c4a9;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+        
+        /* En pantallas más grandes que móvil, el elemento de la lista es horizontal */
+        @media (min-width: 600px) {
+            .pending-item {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+        
+        .pending-item img, .pending-item video {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border: 3px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transform: rotate(-3deg);
+        }
+        
+        .pending-info { flex: 1; width: 100%; }
+        
+        .pending-info label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #5c3a21;
+            font-size: 0.9rem;
+        }
+        
+        .pending-info input[type="datetime-local"],
+        .pending-info textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #c7b597;
+            background: #fffdf8;
+            font-family: inherit;
+            border-radius: 4px;
+        }
+        
+        .pending-info textarea { margin-top: 0.5rem; resize: vertical; min-height: 60px; font-family: 'Caveat', cursive; font-size: 1.2rem; }
+
+
+        /* --- NUEVO: LIGHTBOX PARA VER FOTO GRANDE Y DEDICATORIA --- */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        .lightbox-overlay.active {
+            display: flex;
+        }
+        
+        .lightbox-polaroid-container {
+            width: 90vw;
+            max-width: 550px;
+            aspect-ratio: 1 / 1.2;
+            perspective: 1500px;
+            margin-bottom: 2rem;
+            cursor: pointer;
+        }
+        
+        .lightbox-polaroid {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.4, 0.2, 0.2, 1);
+        }
+        
+        .lightbox-polaroid.is-flipped {
+            transform: rotateY(180deg);
+        }
+
+        .lightbox-polaroid .polaroid-front {
+            padding: 4%;
+            padding-bottom: 18%;
+        }
+        
+        .lightbox-polaroid .polaroid-back {
+            padding: 40px;
+            font-size: clamp(2rem, 5vw, 3rem); /* Dedicatoria mucho más grande */
+            line-height: 1.4;
+        }
+
+        .lightbox-close {
+            background: transparent;
+            color: #f4ecd8;
+            border: 2px solid #f4ecd8;
+            padding: 0.8rem 2rem;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .lightbox-close:hover {
+            background: #f4ecd8;
+            color: #1e1511;
+        }
+        
+        .lightbox-hint {
+            color: #aaa;
+            font-family: 'Caveat', cursive;
+            font-size: 1.5rem;
+            margin-top: 1rem;
+            pointer-events: none;
+        }
+
+        /* --- RESPONSIVIDAD --- */
+        @media (max-width: 768px) {
+            .scene { 
+                width: 100vw; 
+                aspect-ratio: 1.1; /* Libro más cuadrado en móviles para maximizar el tamaño de las fotos */
+                margin: 0.5rem auto;
+            }
+            .toolbar { padding: 1rem; }
+            .btn-vintage { padding: 0.5rem 1rem; font-size: 0.95rem; }
+            
+            .cover-title { font-size: clamp(1.5rem, 5vw, 2.5rem); }
+            .cover-globe { width: 45px; height: 45px; font-size: 2rem; bottom: 12%; }
+            
+            .page-content {
+                padding: 1rem 1rem 3.5rem 1rem;
+                gap: 10px;
+            }
+            .polaroid-wrapper { 
+                width: 95%; /* En móvil el ancho es el limitante para no desbordar */
+                height: auto;
+            }
+            .polaroid-front {
+                padding: 4%; 
+                padding-bottom: 22%; 
+            }
+            .polaroid-front .caption { 
+                bottom: 2%;
+                font-size: clamp(0.6rem, 2.5vw, 1rem); /* Evita que la fecha se vuelva diminuta */
+            }
+            .book-nav {
+                font-size: 1.4rem;
+                bottom: 1rem;
+            }
+            .page.front .book-nav { right: 1rem; }
+            .page.back .book-nav { left: 1rem; }
+
+            /* Adaptación del modal de edición para móviles */
+            .modal-content { margin: 1rem; max-height: 90vh; }
+            .modal-header h2 { font-size: 1.8rem; }
+            .modal-footer { flex-direction: column; }
+            .modal-footer button { width: 100%; }
+        }
+
+        /* --- MODO ROTADO PARA MÓVILES EN VERTICAL --- */
+        @media (max-width: 768px) and (orientation: portrait) {
+            body {
+                overflow: hidden; /* Evita scrolls indeseados por el desbordamiento rotado */
+            }
+            .app-container {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 100vh; /* El ancho toma el alto de la pantalla */
+                height: 100vw; /* El alto toma el ancho de la pantalla */
+                transform: translate(-50%, -50%) rotate(90deg); /* Centrado y rotación de 90 grados */
+                justify-content: center;
+            }
+            .scene {
+                width: 90vh; /* Se expande usando el largo del dispositivo */
+                aspect-ratio: 1.6; /* Retoma su aspecto apaisado perfecto de escritorio */
+                margin: 0 auto;
+            }
+            .page-content {
+                padding: 1.5rem 1.5rem 4.5rem 1.5rem;
+                gap: 15px;
+            }
+            .polaroid-wrapper { 
+                height: 92%; /* Vuelve a ser limitado por alto al rotar */
+                width: auto;
+            }
+            .polaroid-front {
+                padding-bottom: 18%; 
+            }
+            .polaroid-front .caption { 
+                font-size: clamp(0.7rem, 2.5vh, 1.2rem); 
+            }
+            .book-nav {
+                font-size: 1.6rem;
+                bottom: 1.5rem;
+            }
+            .page.front .book-nav { right: 1.5rem; }
+            .page.back .book-nav { left: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- ESCENARIO DEL LIBRO 3D -->
+        <div class="scene">
+            <div class="book" id="book">
+                <!-- Las hojas se inyectarán mediante JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX PANTALLA COMPLETA PARA DEDICATORIAS -->
+    <div id="lightboxOverlay" class="lightbox-overlay">
+        <div id="lightboxPolaroidContainer" class="lightbox-polaroid-container" onclick="toggleLightboxFlip()">
+            <!-- Se inyecta dinámicamente -->
+        </div>
+        <p class="lightbox-hint">Toca la foto para darle la vuelta</p>
+        <button class="lightbox-close" onclick="closeLightbox()">Cerrar</button>
+    </div>
+
+    <!-- SCRIPT DEL VISOR -->
+    <script>
+        // --- ESTADO GLOBAL ---
+        let albumPhotos = []; 
+        let currentLeafIndex = 0;
+        let totalLeaves = 0;
+
+        // --- ELEMENTOS DOM ---
+        const bookContainer = document.getElementById('book');
+        const lightboxOverlay = document.getElementById('lightboxOverlay');
+        const lightboxPolaroidContainer = document.getElementById('lightboxPolaroidContainer');
+
+        // --- CARGAR DESDE CARPETA RAÍZ (datos.json) ---
+        async function loadMemories() {
+            try {
+                const response = await fetch('./datos.json');
+                if (response.ok) {
+                    albumPhotos = await response.json();
+                    // Ordenar: de la más reciente a la más antigua
+                    albumPhotos.sort((a, b) => b.dateTimestamp - a.dateTimestamp);
+                } else {
+                    console.log("No se encontró datos.json. El álbum inicia vacío.");
+                }
+            } catch (error) {
+                console.log("Error leyendo datos.json:", error);
+            }
+            renderBook();
+        }
+
+        // Arrancar
+        loadMemories();
+
+        // --- LÓGICA DEL LIBRO 3D ---
+        function renderBook() {
+            bookContainer.innerHTML = '';
+            
+            // Calculamos hojas exactas necesarias
+            totalLeaves = Math.max(1, Math.ceil(albumPhotos.length / 8));
+            currentLeafIndex = 0;
+
+            for (let i = 0; i <= totalLeaves; i++) {
+                const leaf = document.createElement('div');
+                leaf.className = 'leaf';
+                leaf.id = `leaf-${i}`;
+                
+                // FIX: Usamos la lógica de z-index pura de tu código funcional
+                leaf.style.zIndex = totalLeaves - i; 
+
+                const front = document.createElement('div');
+                front.className = 'page front';
+                
+                const back = document.createElement('div');
+                back.className = 'page back';
+
+                if (i === 0) {
+                    front.classList.add('cover');
+                    front.innerHTML = `
+                        <div class="cover-frame"></div>
+                        <div class="cover-title">
+                            <div>
+                                <span class="c1 t1">N</span><span class="c2 t2">U</span><span class="c1 t3">E</span><span class="c3 t1">S</span><span class="c2 t4">T</span><span class="c4 t2">R</span><span class="c1 t1">O</span>
+                            </div>
+                            <div>
+                                <span class="c2 t3">L</span><span class="c1 t1">I</span><span class="c4 t2">B</span><span class="c2 t4">R</span><span class="c3 t1">O</span>
+                                &nbsp;
+                                <span class="c1 t2">D</span><span class="c4 t3">E</span>
+                            </div>
+                            <div>
+                                <span class="c4 t1">A</span><span class="c2 t2">V</span><span class="c3 t4">E</span><span class="c1 t1">N</span><span class="c4 t3">T</span><span class="c2 t2">U</span><span class="c1 t4">R</span><span class="c4 t1">A</span><span class="c3 t2">S</span>
+                            </div>
+                        </div>
+                        <div class="cover-globe">🌎</div>
+                    `;
+                    back.innerHTML = generatePhotosHTML(0, 4) + `<div class="book-nav" onclick="turnPrev()">← Volver</div>`;
+                } else if (i === totalLeaves) {
+                    front.innerHTML = generatePhotosHTML(i * 8 - 4, i * 8) + `<div class="book-nav" onclick="turnNext()">Pasar →</div>`;
+                    back.classList.add('cover');
+                    back.innerHTML = `<h2 style="font-family:'Caveat', cursive; font-size:3rem;">Por Más Aventuras Juntos</h2><div class="book-nav" onclick="turnPrev()" style="color:#d4af37">← Volver</div>`;
+                } else {
+                    front.innerHTML = generatePhotosHTML(i * 8 - 4, i * 8) + `<div class="book-nav" onclick="turnNext()">Pasar →</div>`;
+                    back.innerHTML = generatePhotosHTML(i * 8, i * 8 + 4) + `<div class="book-nav" onclick="turnPrev()">← Volver</div>`;
+                }
+
+                if (i === 0) {
+                    front.innerHTML += `<div class="book-nav" onclick="turnNext()" style="color:#d4af37">Abrir →</div>`;
+                }
+
+                leaf.appendChild(front);
+                leaf.appendChild(back);
+                bookContainer.appendChild(leaf);
+            }
+        }
+
+        function generatePhotosHTML(startIndex, endIndex) {
+            let html = '<div class="page-content">';
+            for (let j = startIndex; j < endIndex; j++) {
+                if (albumPhotos[j]) {
+                    const randomRotation = (Math.random() * 8) - 4; 
+                    
+                    let mediaContent = '';
+                    if (albumPhotos[j].type === 'video') {
+                        // Usa la URL temporal si acabas de subirlo, o la URL de la carpeta si ya estaba guardado
+                        const videoSrc = albumPhotos[j].tempUrl || albumPhotos[j].url;
+                        mediaContent = `
+                            <div class="media-container" onclick="toggleVideo(this, event)">
+                                <video src="${videoSrc}#t=0.1" preload="metadata"></video>
+                                <div class="play-btn">▶</div>
+                            </div>
+                        `;
+                    } else {
+                        const imgSrc = albumPhotos[j].tempUrl || albumPhotos[j].url;
+                        mediaContent = `<img src="${imgSrc}" alt="Recuerdo">`;
+                    }
+
+                    const backText = albumPhotos[j].phrase || 'Sin dedicatoria';
+
+                    html += `
+                        <div class="polaroid-wrapper" style="transform: rotate(${randomRotation}deg)" onclick="openLightbox(${j})">
+                            <div class="polaroid">
+                                <div class="polaroid-face polaroid-front">
+                                    ${mediaContent}
+                                    <div class="caption">${albumPhotos[j].formattedDate}</div>
+                                </div>
+                                <div class="polaroid-face polaroid-back">
+                                    ${backText}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            html += '</div>';
+            return html;
+        }
+
+        // --- ANIMACIÓN Y CONTROLES ---
+        window.toggleVideo = function(container, event) {
+            if(event) event.stopPropagation(); 
+
+            const video = container.querySelector('video');
+            const btn = container.querySelector('.play-btn');
+            if (!video) return;
+            
+            if (video.paused) {
+                video.play();
+                if(btn) btn.style.opacity = '0';
+            } else {
+                video.pause();
+                if(btn) btn.style.opacity = '1';
+            }
+            
+            video.onended = function() {
+                if(btn) btn.style.opacity = '1';
+            };
+        };
+
+        window.turnNext = function() {
+            if (currentLeafIndex <= totalLeaves) {
+                const leaf = document.getElementById(`leaf-${currentLeafIndex}`);
+                if(leaf) {
+                    leaf.style.transform = 'rotateY(-180deg)';
+                    leaf.style.zIndex = currentLeafIndex; 
+                    currentLeafIndex++;
+                }
+            }
+        };
+
+        window.turnPrev = function() {
+            if (currentLeafIndex > 0) {
+                currentLeafIndex--;
+                const leaf = document.getElementById(`leaf-${currentLeafIndex}`);
+                if(leaf) {
+                    leaf.style.transform = 'rotateY(0deg)';
+                    leaf.style.zIndex = totalLeaves - currentLeafIndex; 
+                }
+            }
+        };
+
+        // --- LÓGICA DEL LIGHTBOX PARA DEDICATORIAS ---
+        window.openLightbox = function(index) {
+            const photo = albumPhotos[index];
+            if (!photo) return;
+
+            const mediaSrc = photo.tempUrl || photo.url;
+            let mediaContent = '';
+            if (photo.type === 'video') {
+                mediaContent = `
+                    <div class="media-container" onclick="toggleVideo(this, event)" style="width:100%; height:100%; position:relative; cursor:pointer;">
+                        <video src="${mediaSrc}#t=0.1" controls style="width:100%; height:100%; object-fit:cover; border:1px solid #eee; background: #000;"></video>
+                    </div>
+                `;
+            } else {
+                mediaContent = `<img src="${mediaSrc}" style="width:100%; height:100%; object-fit:cover; border:1px solid #eee;">`;
+            }
+
+            const backText = photo.phrase || 'Sin dedicatoria';
+
+            lightboxPolaroidContainer.innerHTML = `
+                <div class="lightbox-polaroid" id="activeLightboxPolaroid">
+                    <div class="polaroid-face polaroid-front">
+                        ${mediaContent}
+                        <div class="caption" style="position:absolute; bottom:3%; left:0; right:0; text-align:center; font-family:'Caveat', cursive; font-size:clamp(1.5rem, 4vw, 2.5rem); color:#111;">
+                            ${photo.formattedDate}
+                        </div>
+                    </div>
+                    <div class="polaroid-face polaroid-back">${backText}</div>
+                </div>
+            `;
+
+            lightboxOverlay.classList.add('active');
+            
+            setTimeout(() => {
+                const activePolaroid = document.getElementById('activeLightboxPolaroid');
+                if(activePolaroid && backText !== 'Sin dedicatoria') {
+                    activePolaroid.classList.add('is-flipped');
+                }
+            }, 500);
+        };
+
+        window.closeLightbox = function() {
+            lightboxOverlay.classList.remove('active');
+            lightboxPolaroidContainer.innerHTML = ''; 
+        };
+
+        window.toggleLightboxFlip = function() {
+            const activePolaroid = document.getElementById('activeLightboxPolaroid');
+            if(activePolaroid) {
+                activePolaroid.classList.toggle('is-flipped');
+            }
+        };
+    </script>
+</body>
+</html>

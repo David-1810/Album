@@ -1,0 +1,10 @@
+# Dependencias de Node.js
+node_modules/
+
+# Archivos privados o del servidor
+admin.html
+server.js
+
+# Archivos de configuración de Node
+package.json
+package-lock.json
