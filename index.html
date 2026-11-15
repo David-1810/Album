@@ -40,6 +40,46 @@
             overflow: hidden;
         }
 
+        /* --- PANTALLA DE CARGA --- */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background-color: #3b2313;
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="1.5" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.1"/%3E%3C/svg%3E');
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #d4af37;
+            transition: opacity 0.8s ease, visibility 0.8s;
+        }
+
+        .loader-globe {
+            font-size: 5rem;
+            animation: bounce-spin 2s ease-in-out infinite;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+        }
+        
+        .loader-text {
+            font-family: 'Caveat', cursive;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            letter-spacing: 2px;
+        }
+
+        @keyframes bounce-spin {
+            0% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+            100% { transform: translateY(0) rotate(360deg); }
+        }
+        
+        .loader-hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
         /* --- CONTENEDOR DEL LIBRO 3D --- */
         .scene {
             position: relative;
@@ -647,6 +687,12 @@
 </head>
 <body>
 
+    <!-- PANTALLA DE CARGA -->
+    <div id="loader">
+        <div class="loader-globe">🌎</div>
+        <div class="loader-text">Preparando aventuras...</div>
+    </div>
+
     <div class="controls-container">
         <button class="sort-btn" onclick="toggleSortOrder()" id="sortBtn">⏱ Orden: Más recientes primero</button>
     </div>
@@ -695,7 +741,17 @@
             } catch (error) {
                 console.log("Error leyendo datos.json:", error);
             }
+            
+            // Construimos el libro
             renderBook();
+
+            // Simulamos un tiempo de carga estético y esperamos a que carguen imágenes
+            setTimeout(() => {
+                const loader = document.getElementById('loader');
+                if (loader) {
+                    loader.classList.add('loader-hidden');
+                }
+            }, 1800); // La pantalla de carga durará 1.8 segundos
         }
 
         // --- LÓGICA DE ORDENAMIENTO ---
