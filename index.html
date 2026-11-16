@@ -745,9 +745,11 @@
             // Construimos el libro en el DOM (invisible por ahora)
             renderBook();
 
-            // --- LÓGICA DE PRECARGA REAL (PRELOADER) ---
-            // Creamos una lista de "promesas", una por cada foto/video del álbum.
-            const mediaPromises = albumPhotos.map(photo => {
+            // --- LÓGICA DE PRECARGA REAL Y OPTIMIZADA (PRELOADER) ---
+            // Solo esperamos a que carguen las fotos de las primeras 4 páginas (16 elementos máximo)
+            const photosToPreload = albumPhotos.slice(0, 16);
+            
+            const mediaPromises = photosToPreload.map(photo => {
                 return new Promise((resolve) => {
                     if (photo.type === 'video') {
                         const vid = document.createElement('video');
@@ -766,7 +768,7 @@
             // Agregamos un tiempo mínimo de 1.2 segundos solo por estética (para disfrutar la animación)
             const minimumAestheticTime = new Promise(resolve => setTimeout(resolve, 1200));
 
-            // Promise.all espera a que TODAS las fotos carguen + el tiempo estético
+            // Promise.all espera a que TODAS las fotos INICIALES carguen + el tiempo estético
             Promise.all([...mediaPromises, minimumAestheticTime]).then(() => {
                 const loader = document.getElementById('loader');
                 if (loader) {
@@ -882,7 +884,8 @@
                         `;
                     } else {
                         const imgSrc = albumPhotos[j].tempUrl || albumPhotos[j].url;
-                        mediaContent = `<img src="${imgSrc}" alt="Recuerdo">`;
+                        // Añadimos loading="lazy" para que el navegador solo cargue estas fotos cuando te acerques a su página
+                        mediaContent = `<img src="${imgSrc}" alt="Recuerdo" loading="lazy">`;
                     }
 
                     const backText = albumPhotos[j].phrase || 'Sin dedicatoria';
