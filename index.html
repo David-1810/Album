@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nuestro Libro De Aventuras</title>
+    <title>Álbum de Fotografías Vintage</title>
     
     <!-- Exif.js para leer metadatos de imágenes -->
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
@@ -742,16 +742,37 @@
                 console.log("Error leyendo datos.json:", error);
             }
             
-            // Construimos el libro
+            // Construimos el libro en el DOM (invisible por ahora)
             renderBook();
 
-            // Simulamos un tiempo de carga estético y esperamos a que carguen imágenes
-            setTimeout(() => {
+            // --- LÓGICA DE PRECARGA REAL (PRELOADER) ---
+            // Creamos una lista de "promesas", una por cada foto/video del álbum.
+            const mediaPromises = albumPhotos.map(photo => {
+                return new Promise((resolve) => {
+                    if (photo.type === 'video') {
+                        const vid = document.createElement('video');
+                        vid.onloadedmetadata = resolve; // Resuelve cuando los datos del video cargan
+                        vid.onerror = resolve; // Resuelve incluso si hay error para no bloquear la app
+                        vid.src = photo.url;
+                    } else {
+                        const img = new Image();
+                        img.onload = resolve; // Resuelve cuando la imagen descarga completa
+                        img.onerror = resolve;
+                        img.src = photo.url;
+                    }
+                });
+            });
+
+            // Agregamos un tiempo mínimo de 1.2 segundos solo por estética (para disfrutar la animación)
+            const minimumAestheticTime = new Promise(resolve => setTimeout(resolve, 1200));
+
+            // Promise.all espera a que TODAS las fotos carguen + el tiempo estético
+            Promise.all([...mediaPromises, minimumAestheticTime]).then(() => {
                 const loader = document.getElementById('loader');
                 if (loader) {
                     loader.classList.add('loader-hidden');
                 }
-            }, 1800); // La pantalla de carga durará 1.8 segundos
+            });
         }
 
         // --- LÓGICA DE ORDENAMIENTO ---
@@ -827,7 +848,7 @@
                 } else if (i === totalLeaves) {
                     front.innerHTML = generatePhotosHTML(i * 8 - 4, i * 8) + `<div class="book-nav" onclick="turnNext()">Pasar →</div>`;
                     back.classList.add('cover');
-                    back.innerHTML = `<h2 style="font-family:'Caveat', cursive; font-size:3rem;">Por Más Aventuras Juntos</h2><div class="book-nav" onclick="turnPrev()" style="color:#d4af37">← Volver</div>`;
+                    back.innerHTML = `<h2 style="font-family:'Caveat', cursive; font-size:3rem;">Fin del Álbum</h2><div class="book-nav" onclick="turnPrev()" style="color:#d4af37">← Volver</div>`;
                 } else {
                     front.innerHTML = generatePhotosHTML(i * 8 - 4, i * 8) + `<div class="book-nav" onclick="turnNext()">Pasar →</div>`;
                     back.innerHTML = generatePhotosHTML(i * 8, i * 8 + 4) + `<div class="book-nav" onclick="turnPrev()">← Volver</div>`;
